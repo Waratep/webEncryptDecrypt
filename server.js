@@ -9,21 +9,33 @@ app.get('/', function(req, res) {
 
 app.post('/getRandomKey', function(req, res) {
 
-    var ciphers = req.query.cipher;
-    var mode = req.query.mode;
+    var ciphers = req.query.ciphers;
     var key_size = req.query.size;
     var outputformat = req.query.format;
 
     const crypto = require('crypto');
-    const algorithm = ciphers + '-' + key_size + '-' + mode + '';
-    const key = crypto.randomBytes(parseInt(key_size) / 8);
-    const iv = crypto.randomBytes(16);
+    let key;
+    let iv;
+    switch (ciphers) {
+        case 'aes':
+            key = crypto.randomBytes(parseInt(key_size) / 8);
+            iv = crypto.randomBytes(16);
+            break;
 
-    if (outputformat == 'hex') {
-        var ret = { 'key': key.toString('hex'), 'iv': iv.toString('hex') }
+        case 'des':
+            key = crypto.randomBytes(8);
+            iv = crypto.randomBytes(8);
+            break;
     }
-    if (outputformat == 'base64') {
-        var ret = { 'key': key.toString('base64'), 'iv': iv.toString('base64') }
+
+    let ret;
+    switch (outputformat) {
+        case 'hex':
+            ret = { 'key': key.toString('hex'), 'iv': iv.toString('hex') }
+            break;
+        case 'base64':
+            ret = { 'key': key.toString('base64'), 'iv': iv.toString('base64') }
+            break;
     }
 
     res.send(ret);
@@ -34,14 +46,25 @@ app.post('/NormalEncrypt', function(req, res) {
     var text = req.query.text;
     var ciphers = req.query.ciphers;
     var mode = req.query.mode;
-    var key_size = req.query.size;
     var secrete_key = req.query.secrete_key;
     var outputformat = req.query.format;
 
     let buffer_secrete_key = Buffer.from(secrete_key, 'hex');
 
-    const crypto = require('crypto');
-    const algorithm = ciphers + '-' + key_size + '-' + mode + '';
+    let crypto = require('crypto');
+    let algorithm;
+    let key_size;
+
+    switch (ciphers) {
+        case 'aes':
+            key_size = req.query.size;
+            algorithm = ciphers + '-' + key_size + '-' + mode + '';
+            break;
+        case 'des':
+            algorithm = ciphers + '-' + mode + '';
+            break;
+    }
+
     let cipher;
     let iv;
     let buffer_iv;
@@ -61,11 +84,14 @@ app.post('/NormalEncrypt', function(req, res) {
     let encrypted = cipher.update(text, 'utf-8');
     encrypted = Buffer.concat([encrypted, cipher.final()]);
 
-    if (outputformat == 'hex') {
-        var ret = { 'data': encrypted.toString('hex') }
-    }
-    if (outputformat == 'base64') {
-        var ret = { 'data': encrypted.toString('base64') }
+    let ret;
+    switch (outputformat) {
+        case 'hex':
+            ret = { 'data': encrypted.toString('hex') }
+            break;
+        case 'base64':
+            ret = { 'data': encrypted.toString('base64') }
+            break;
     }
 
     res.send(ret);
@@ -76,7 +102,6 @@ app.post('/NormalDecrypt', function(req, res) {
     var text = req.query.text;
     var ciphers = req.query.ciphers;
     var mode = req.query.mode;
-    var key_size = req.query.size;
     var secrete_key = req.query.secrete_key;
     var outputformat = req.query.format;
 
@@ -84,7 +109,18 @@ app.post('/NormalDecrypt', function(req, res) {
     let buffer_text = Buffer.from(text, 'hex');
 
     const crypto = require('crypto');
-    const algorithm = ciphers + '-' + key_size + '-' + mode + '';
+    let algorithm;
+    let key_size;
+
+    switch (ciphers) {
+        case 'aes':
+            key_size = req.query.size;
+            algorithm = ciphers + '-' + key_size + '-' + mode + '';
+            break;
+        case 'des':
+            algorithm = ciphers + '-' + mode + '';
+            break;
+    }
 
     let encryptedText = Buffer.from(buffer_text, 'hex');
     let decipher;
@@ -106,14 +142,17 @@ app.post('/NormalDecrypt', function(req, res) {
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
 
-    if (outputformat == 'hex') {
-        var ret = { 'data': decrypted.toString('hex') }
-    }
-    if (outputformat == 'base64') {
-        var ret = { 'data': decrypted.toString('base64') }
-    }
-    if (outputformat == 'str') {
-        var ret = { 'data': decrypted.toString() }
+    let ret;
+    switch (outputformat) {
+        case 'hex':
+            ret = { 'data': decrypted.toString('hex') }
+            break;
+        case 'base64':
+            ret = { 'data': decrypted.toString('base64') }
+            break;
+        case 'str':
+            ret = { 'data': decrypted.toString() }
+            break;
     }
 
     res.send(ret);

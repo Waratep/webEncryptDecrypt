@@ -1,29 +1,15 @@
-// Nodejs encryption with CTR
 const crypto = require('crypto');
-const algorithm = 'aes-128-cbc';
-const key = crypto.randomBytes(16);
-const iv = crypto.randomBytes(16);
 
-
-// console.log(Buffer.from(key.toString('hex')), iv.toString('hex'));
-
-
-function encrypt(text) {
-    let cipher = crypto.createCipheriv(algorithm, Buffer.from(key), Buffer.from(iv));
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return { encryptedData: encrypted.toString('hex') };
+function encodeDesCBC(textToEncode, keyString, ivString) {
+    var key = new Buffer(keyString.substring(0, 8), 'utf8');
+    var iv = new Buffer(ivString.substring(0, 8), 'utf8');
+    var cipher = crypto.createCipheriv('des-cbc', key, iv);
+    var c = cipher.update(textToEncode, 'utf8', 'hex');
+    c += cipher.final('hex');
+    return c;
 }
 
-function decrypt(text) {
-    let encryptedText = Buffer.from(text.encryptedData, 'hex');
-    console.log(encryptedText);
-    let decipher = crypto.createDecipheriv(algorithm, Buffer.from(key), Buffer.from(iv));
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-}
 
-var hw = encrypt('datasss')
-console.log(hw)
-console.log(decrypt(hw))
+let a = encodeDesCBC('Waratep', 'd2165e107b9ba13d03ac77f7ab8328a11f8db58ae141403b5f5f1c3ddd5824ab', 'e9a49413185f5b4eac2ed5920aea150b')
+
+console.log(a);
