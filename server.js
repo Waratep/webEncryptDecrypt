@@ -36,16 +36,28 @@ app.post('/NormalEncrypt', function(req, res) {
     var mode = req.query.mode;
     var key_size = req.query.size;
     var secrete_key = req.query.secrete_key;
-    var iv = req.query.iv;
     var outputformat = req.query.format;
 
     let buffer_secrete_key = Buffer.from(secrete_key, 'hex');
-    let buffer_iv = Buffer.from(iv, 'hex');
 
     const crypto = require('crypto');
     const algorithm = ciphers + '-' + key_size + '-' + mode + '';
+    let cipher;
+    let iv;
+    let buffer_iv;
 
-    let cipher = crypto.createCipheriv(algorithm, buffer_secrete_key, buffer_iv);
+    switch (mode) {
+        case 'cbc':
+            iv = req.query.iv;
+            buffer_iv = Buffer.from(iv, 'hex');
+            cipher = crypto.createCipheriv(algorithm, buffer_secrete_key, buffer_iv);
+            break;
+
+        case 'ecb':
+            cipher = crypto.createCipher(algorithm, buffer_secrete_key);
+            break;
+    }
+
     let encrypted = cipher.update(text, 'utf-8');
     encrypted = Buffer.concat([encrypted, cipher.final()]);
 
@@ -66,18 +78,31 @@ app.post('/NormalDecrypt', function(req, res) {
     var mode = req.query.mode;
     var key_size = req.query.size;
     var secrete_key = req.query.secrete_key;
-    var iv = req.query.iv;
     var outputformat = req.query.format;
 
     let buffer_secrete_key = Buffer.from(secrete_key, 'hex');
-    let buffer_iv = Buffer.from(iv, 'hex');
     let buffer_text = Buffer.from(text, 'hex');
 
     const crypto = require('crypto');
     const algorithm = ciphers + '-' + key_size + '-' + mode + '';
 
     let encryptedText = Buffer.from(buffer_text, 'hex');
-    let decipher = crypto.createDecipheriv(algorithm, Buffer.from(buffer_secrete_key), Buffer.from(buffer_iv));
+    let decipher;
+    let iv;
+    let buffer_iv;
+
+    switch (mode) {
+        case 'cbc':
+            iv = req.query.iv;
+            buffer_iv = Buffer.from(iv, 'hex');
+            decipher = crypto.createDecipheriv(algorithm, Buffer.from(buffer_secrete_key), Buffer.from(buffer_iv));
+            break;
+
+        case 'ecb':
+            decipher = crypto.createDecipher(algorithm, Buffer.from(buffer_secrete_key));
+            break;
+    }
+
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
 
