@@ -11,9 +11,9 @@ app.get('/', function(req, res) {
 
 app.post('/getRandomKey', function(req, res) {
 
-    var ciphers = req.query.ciphers;
-    var key_size = req.query.size;
-    var outputformat = req.query.format;
+    var ciphers = req.body.ciphers;
+    var key_size = req.body.size;
+    var outputformat = req.body.format;
 
     const crypto = require('crypto');
     let key;
@@ -45,11 +45,10 @@ app.post('/getRandomKey', function(req, res) {
 
 app.post('/NormalEncrypt', function(req, res) {
 
-    var text = req.query.text;
-    var ciphers = req.query.ciphers;
-    var mode = req.query.mode;
-    var secrete_key = req.query.secrete_key;
-    var outputformat = req.query.format;
+    var ciphers = req.body.ciphers;
+    var mode = req.body.mode;
+    var secrete_key = req.body.secrete_key;
+    var outputformat = req.body.format;
 
     let buffer_secrete_key = Buffer.from(secrete_key, 'hex');
 
@@ -59,7 +58,7 @@ app.post('/NormalEncrypt', function(req, res) {
 
     switch (ciphers) {
         case 'aes':
-            key_size = req.query.size;
+            key_size = req.body.size;
             algorithm = ciphers + '-' + key_size + '-' + mode + '';
             break;
         case 'des':
@@ -73,7 +72,7 @@ app.post('/NormalEncrypt', function(req, res) {
 
     switch (mode) {
         case 'cbc':
-            iv = req.query.iv;
+            iv = req.body.iv;
             buffer_iv = Buffer.from(iv, 'hex');
             cipher = crypto.createCipheriv(algorithm, buffer_secrete_key, buffer_iv);
             break;
@@ -83,32 +82,60 @@ app.post('/NormalEncrypt', function(req, res) {
             break;
     }
 
-    let encrypted = cipher.update(text, 'utf-8');
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-
+    let text;
+    let image;
+    let encrypted;
     let ret;
-    switch (outputformat) {
-        case 'hex':
-            ret = { 'data': encrypted.toString('hex') }
-            break;
-        case 'base64':
-            ret = { 'data': encrypted.toString('base64') }
-            break;
-    }
 
-    res.send(ret);
+    if (!req.files || Object.keys(req.files).length === 0) {
+        text = req.body.text
+        encrypted = cipher.update(text, 'utf-8');
+        encrypted = Buffer.concat([encrypted, cipher.final()]);
+
+        switch (outputformat) {
+            case 'hex':
+                ret = { 'data': encrypted.toString('hex') }
+                break;
+            case 'base64':
+                ret = { 'data': encrypted.toString('base64') }
+                break;
+        }
+        res.send(ret);
+
+    } else {
+        let sampleFile = req.files.sampleFile;
+        sampleFile.mv(__dirname + '/tmpfile/' + sampleFile.name, function(err) {
+            if (err)
+                return res.status(500).send(err);
+
+            const fs = require('fs')
+            image = fs.readFileSync(__dirname + '/tmpfile/' + sampleFile.name)
+
+            encrypted = cipher.update(Buffer.from(image), 'utf-8');
+            encrypted = Buffer.concat([encrypted, cipher.final()]);
+
+            var promise = new Promise(function(resolve, reject) {
+                ret = __dirname + '/tmpfile/' + 'output' + sampleFile.name;
+                fs.writeFileSync(ret, encrypted)
+                res.sendfile(ret);
+                setTimeout(resolve, 500)
+            });
+            promise.then(function() {
+                // fs.unlinkSync(__dirname + '/tmpfile/' + sampleFile.name);
+                // fs.unlinkSync(__dirname + '/tmpfile/' + 'output' + sampleFile.name);
+            })
+        });
+    }
 })
 
 app.post('/NormalDecrypt', function(req, res) {
 
-    var text = req.query.text;
-    var ciphers = req.query.ciphers;
-    var mode = req.query.mode;
-    var secrete_key = req.query.secrete_key;
-    var outputformat = req.query.format;
+    var ciphers = req.body.ciphers;
+    var mode = req.body.mode;
+    var secrete_key = req.body.secrete_key;
+    var outputformat = req.body.format;
 
     let buffer_secrete_key = Buffer.from(secrete_key, 'hex');
-    let buffer_text = Buffer.from(text, 'hex');
 
     const crypto = require('crypto');
     let algorithm;
@@ -116,7 +143,7 @@ app.post('/NormalDecrypt', function(req, res) {
 
     switch (ciphers) {
         case 'aes':
-            key_size = req.query.size;
+            key_size = req.body.size;
             algorithm = ciphers + '-' + key_size + '-' + mode + '';
             break;
         case 'des':
@@ -124,14 +151,13 @@ app.post('/NormalDecrypt', function(req, res) {
             break;
     }
 
-    let encryptedText = Buffer.from(buffer_text, 'hex');
     let decipher;
     let iv;
     let buffer_iv;
 
     switch (mode) {
         case 'cbc':
-            iv = req.query.iv;
+            iv = req.body.iv;
             buffer_iv = Buffer.from(iv, 'hex');
             decipher = crypto.createDecipheriv(algorithm, Buffer.from(buffer_secrete_key), Buffer.from(buffer_iv));
             break;
@@ -141,23 +167,57 @@ app.post('/NormalDecrypt', function(req, res) {
             break;
     }
 
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
 
+    let buffer_text;
+    let encryptedText;
+    let text;
+    let image;
     let ret;
-    switch (outputformat) {
-        case 'hex':
-            ret = { 'data': decrypted.toString('hex') }
-            break;
-        case 'base64':
-            ret = { 'data': decrypted.toString('base64') }
-            break;
-        case 'str':
-            ret = { 'data': decrypted.toString() }
-            break;
-    }
+    let decrypted;
 
-    res.send(ret);
+    if (!req.files || Object.keys(req.files).length === 0) {
+
+        buffer_text = Buffer.from(text, 'hex');
+        encryptedText = Buffer.from(buffer_text, 'hex');
+        decrypted = decipher.update(encryptedText);
+        decrypted = Buffer.concat([decrypted, decipher.final()]);
+
+        switch (outputformat) {
+            case 'hex':
+                ret = { 'data': decrypted.toString('hex') }
+                break;
+            case 'base64':
+                ret = { 'data': decrypted.toString('base64') }
+                break;
+            case 'str':
+                ret = { 'data': decrypted.toString() }
+                break;
+        }
+        res.send(ret);
+    } else {
+        let sampleFile = req.files.sampleFile;
+        sampleFile.mv(__dirname + '/tmpfile/' + sampleFile.name, function(err) {
+            if (err)
+                return res.status(500).send(err);
+
+            const fs = require('fs')
+            image = fs.readFileSync(__dirname + '/tmpfile/' + sampleFile.name)
+
+            decrypted = decipher.update(image);
+            decrypted = Buffer.concat([decrypted, decipher.final()]);
+
+            var promise = new Promise(function(resolve, reject) {
+                ret = __dirname + '/tmpfile/' + 'output' + sampleFile.name;
+                fs.writeFileSync(ret, decrypted)
+                res.sendfile(ret);
+                setTimeout(resolve, 500)
+            });
+            promise.then(function() {
+                // fs.unlinkSync(__dirname + '/tmpfile/' + sampleFile.name);
+                // fs.unlinkSync(__dirname + '/tmpfile/' + 'output' + sampleFile.name);
+            })
+        });
+    }
 })
 
 app.post('/StegaEncrypt', function(req, res) {
