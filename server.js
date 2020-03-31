@@ -1,7 +1,9 @@
 var express = require('express');
 var app = express();
 var https = require('https');
+const fileUpload = require('express-fileupload');
 
+app.use(fileUpload());
 app.use(express.static('public'));
 app.get('/', function(req, res) {
     res.sendFile(__dirname + "/" + "index.html");
@@ -156,6 +158,50 @@ app.post('/NormalDecrypt', function(req, res) {
     }
 
     res.send(ret);
+})
+
+app.post('/StegaEncrypt', function(req, res) {
+
+    if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).send('No files were uploaded or text is emtry.');
+    }
+
+    let sampleFile = req.files.sampleFile;
+    sampleFile.mv(__dirname + '/tmpfile/' + sampleFile.name, function(err) {
+        if (err)
+            return res.status(500).send(err);
+        const fs = require('fs')
+        const steggy = require('steggy-noencrypt')
+
+        const original = fs.readFileSync(__dirname + '/tmpfile/' + sampleFile.name)
+        const message = req.body.text
+
+        const concealed = steggy.conceal(original, message)
+
+        fs.writeFileSync(__dirname + '/tmpfile/' + 'output' + sampleFile.name, concealed)
+        res.sendfile(__dirname + '/tmpfile/' + 'output' + sampleFile.name);
+    });
+})
+
+app.post('/StegaDecrypt', function(req, res) {
+
+    if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).send('No files were uploaded or text is emtry.');
+    }
+
+    let sampleFile = req.files.sampleFile;
+    sampleFile.mv(__dirname + '/tmpfile/' + sampleFile.name, function(err) {
+        if (err)
+            return res.status(500).send(err);
+        const fs = require('fs')
+        const image = fs.readFileSync(__dirname + '/tmpfile/' + sampleFile.name)
+        const steggy = require('steggy-noencrypt')
+        const revealed = steggy.reveal(image /*, encoding */ )
+        console.log(revealed.toString());
+
+        ret = { 'text': revealed.toString() }
+        res.status(200).send(ret);
+    });
 })
 
 app.listen(3000, () => console.log(`Example app listening on port ${3000}!`))
